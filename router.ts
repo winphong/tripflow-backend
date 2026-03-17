@@ -25,7 +25,7 @@ function withCors(res: Response): Response {
 }
 
 export async function router(req: Request): Promise<Response> {
-  const url = new URL(req.url, `https://${req.headers.get("host")}`);
+  const url = new URL(req.url, `https://${req.headers["host"]}`);
   const path = url.pathname;
   const method = req.method;
 
