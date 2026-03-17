@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { getDB } from '../db';
+import { getDB } from '../db.js';
 
 function toInvite(doc: any) {
   const { _id, ...rest } = doc;

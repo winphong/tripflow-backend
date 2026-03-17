@@ -1,12 +1,19 @@
-import { register, login } from "./handlers/auth";
-import { getTrips, createTrip, deleteTrip } from "./handlers/trips";
-import { getAllDays, createDay, deleteDay } from "./handlers/days";
-import { createItem, updateItem, deleteItem } from "./handlers/items";
-import { createInvite, getTripInvites, revokeInvite, getMyInvites, respondToInvite } from "./handlers/invites";
-import { verifyAuth } from "./middleware/auth";
+import { register, login } from "./handlers/auth.js";
+import { getTrips, createTrip, deleteTrip } from "./handlers/trips.js";
+import { getAllDays, createDay, deleteDay } from "./handlers/days.js";
+import { createItem, updateItem, deleteItem } from "./handlers/items.js";
+import {
+  createInvite,
+  getTripInvites,
+  revokeInvite,
+  getMyInvites,
+  respondToInvite,
+} from "./handlers/invites.js";
+import { verifyAuth } from "./middleware/auth.js";
 
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": process.env.FRONTEND_URL ?? "http://localhost:3001",
+  "Access-Control-Allow-Origin":
+    process.env.FRONTEND_URL ?? "http://localhost:3001",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
@@ -18,7 +25,7 @@ function withCors(res: Response): Response {
 }
 
 export async function router(req: Request): Promise<Response> {
-  const url = new URL(req.url);
+  const url = new URL(req.url, `https://${req.headers.get("host")}`);
   const path = url.pathname;
   const method = req.method;
 
@@ -59,7 +66,9 @@ export async function router(req: Request): Promise<Response> {
     const tripMatch = path.match(/^\/api\/trips\/([^/]+)$/);
     const daysListMatch = path.match(/^\/api\/trips\/([^/]+)\/days$/);
     const dayMatch = path.match(/^\/api\/trips\/([^/]+)\/days\/([^/]+)$/);
-    const itemsMatch = path.match(/^\/api\/trips\/([^/]+)\/days\/([^/]+)\/items(?:\/([^/]+))?$/);
+    const itemsMatch = path.match(
+      /^\/api\/trips\/([^/]+)\/days\/([^/]+)\/items(?:\/([^/]+))?$/,
+    );
     const invitesListMatch = path.match(/^\/api\/trips\/([^/]+)\/invites$/);
     const inviteMatch = path.match(/^\/api\/trips\/([^/]+)\/invites\/([^/]+)$/);
 
@@ -89,11 +98,22 @@ export async function router(req: Request): Promise<Response> {
       const auth = await verifyAuth(req);
       if (auth instanceof Response) return withCors(auth);
       const body = await req.json();
-      res = await updateItem(auth.userId, itemsMatch[1], itemsMatch[2], itemsMatch[3], body);
+      res = await updateItem(
+        auth.userId,
+        itemsMatch[1],
+        itemsMatch[2],
+        itemsMatch[3],
+        body,
+      );
     } else if (itemsMatch && itemsMatch[3] && method === "DELETE") {
       const auth = await verifyAuth(req);
       if (auth instanceof Response) return withCors(auth);
-      res = await deleteItem(auth.userId, itemsMatch[1], itemsMatch[2], itemsMatch[3]);
+      res = await deleteItem(
+        auth.userId,
+        itemsMatch[1],
+        itemsMatch[2],
+        itemsMatch[3],
+      );
     } else if (invitesListMatch && method === "GET") {
       const auth = await verifyAuth(req);
       if (auth instanceof Response) return withCors(auth);

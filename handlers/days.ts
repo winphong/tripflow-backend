@@ -1,6 +1,6 @@
-import { getDB } from "../db";
-import type { DayPlan } from "../types";
-import { getTripAccess } from "./access";
+import { getDB } from "../db.js";
+import type { DayPlan } from "../types.js";
+import { getTripAccess } from "./access.js";
 
 type DayDoc = Omit<DayPlan, "id"> & { _id: string; tripId: string };
 

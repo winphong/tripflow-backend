@@ -1,4 +1,4 @@
-import { connectDB, getDB } from './db';
+import { connectDB, getDB } from './db.js';
 
 await connectDB();
 const db = getDB();

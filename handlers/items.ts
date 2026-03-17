@@ -1,6 +1,6 @@
-import { getDB } from '../db';
-import type { TripItem } from '../types';
-import { getTripAccess } from './access';
+import { getDB } from '../db.js';
+import type { TripItem } from '../types.js';
+import { getTripAccess } from './access.js';
 
 export async function createItem(userId: string, tripId: string, dayId: string, body: unknown): Promise<Response> {
   const access = await getTripAccess(tripId, userId);

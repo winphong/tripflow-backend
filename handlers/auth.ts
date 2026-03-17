@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { SignJWT } from 'jose';
-import { getDB } from '../db';
+import { getDB } from '../db.js';
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
 
