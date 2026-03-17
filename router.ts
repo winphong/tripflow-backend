@@ -1,0 +1,90 @@
+import { register, login } from "./handlers/auth";
+import { getTrips, createTrip, deleteTrip } from "./handlers/trips";
+import { getAllDays, createDay, deleteDay } from "./handlers/days";
+import { createItem, updateItem, deleteItem } from "./handlers/items";
+import { verifyAuth } from "./middleware/auth";
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "http://localhost:3001",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+function withCors(res: Response): Response {
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v);
+  return new Response(res.body, { status: res.status, headers });
+}
+
+export async function router(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const path = url.pathname;
+  const method = req.method;
+
+  if (method === "OPTIONS") {
+    return new Response(null, { status: 200, headers: CORS_HEADERS });
+  }
+
+  let res: Response;
+
+  if (path === "/api/health" && method === "GET") {
+    res = Response.json({ ok: true });
+  } else if (path === "/api/auth/register" && method === "POST") {
+    const body = await req.json();
+    res = await register(body);
+  } else if (path === "/api/auth/login" && method === "POST") {
+    const body = await req.json();
+    res = await login(body);
+  } else if (path === "/api/trips" && method === "GET") {
+    const auth = await verifyAuth(req);
+    if (auth instanceof Response) return withCors(auth);
+    res = await getTrips(auth.userId);
+  } else if (path === "/api/trips" && method === "POST") {
+    const auth = await verifyAuth(req);
+    if (auth instanceof Response) return withCors(auth);
+    const body = await req.json();
+    res = await createTrip(auth.userId, body);
+  } else {
+    const tripMatch = path.match(/^\/api\/trips\/([^/]+)$/);
+    const daysListMatch = path.match(/^\/api\/trips\/([^/]+)\/days$/);
+    const dayMatch = path.match(/^\/api\/trips\/([^/]+)\/days\/([^/]+)$/);
+    const itemsMatch = path.match(/^\/api\/trips\/([^/]+)\/days\/([^/]+)\/items(?:\/([^/]+))?$/);
+
+    if (tripMatch && method === "DELETE") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      res = await deleteTrip(auth.userId, tripMatch[1]);
+    } else if (daysListMatch && method === "GET") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      res = await getAllDays(auth.userId, daysListMatch[1]);
+    } else if (daysListMatch && method === "POST") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      const body = await req.json();
+      res = await createDay(auth.userId, daysListMatch[1], body);
+    } else if (dayMatch && method === "DELETE") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      res = await deleteDay(auth.userId, dayMatch[1], dayMatch[2]);
+    } else if (itemsMatch && method === "POST") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      const body = await req.json();
+      res = await createItem(auth.userId, itemsMatch[1], itemsMatch[2], body);
+    } else if (itemsMatch && itemsMatch[3] && method === "PUT") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      const body = await req.json();
+      res = await updateItem(auth.userId, itemsMatch[1], itemsMatch[2], itemsMatch[3], body);
+    } else if (itemsMatch && itemsMatch[3] && method === "DELETE") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      res = await deleteItem(auth.userId, itemsMatch[1], itemsMatch[2], itemsMatch[3]);
+    } else {
+      res = Response.json({ error: "Not found" }, { status: 404 });
+    }
+  }
+
+  return withCors(res);
+}

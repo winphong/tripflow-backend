@@ -1,0 +1,13 @@
+{
+  "name": "tripflow-backend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun --watch index.ts",
+    "start": "bun index.ts",
+    "migrate": "bun migrate.ts"
+  },
+  "dependencies": {
+    "jose": "^6.2.1",
+    "mongodb": "^7.1.0"
+  }
+}
