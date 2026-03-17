@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Related Project
+
+The frontend lives at `../tripflow` (React + Vite + Tailwind, runs on port 3000). Changes to the API should be reflected in `../tripflow/src/api.ts` and `../tripflow/src/types.ts`. Always check both projects when working on a feature end-to-end.
+
 ## Commands
 
 ```bash
@@ -32,7 +36,9 @@ Three MongoDB collections:
 - **`trips`**: `{ name, userId (ObjectId), createdAt }`, index on `userId`
 - **`days`**: `{ _id: "day-{tripId}-{YYYYMMDD}", date, tripId (string), items[] }`, compound unique index on `{tripId, date}`
 
-`TripItem` is embedded in `days.items` array. Items use `arrayFilters` for MongoDB positional updates. Authorization for days/items is checked via `checkTripOwnership()` (verifies `trips.userId` matches the authenticated user).
+`TripItem` is embedded in `days.items` array. Items use `arrayFilters` for MongoDB positional updates. Authorization for days/items is checked via `getTripAccess()` in `handlers/access.ts`, which returns `'owner' | 'collaborator' | 'viewer' | null`. Viewers are blocked from writes.
+
+A fourth collection **`trip_invites`**: `{ tripId, invitedBy, email, role ('viewer'|'collaborator'), status ('pending'|'accepted'), userId (null until accepted), createdAt, respondedAt }`. Unique index on `{tripId, email}`. Declining an invite deletes the document. Pending invites are linked to a `userId` when the invitee registers.
 
 ## API Routes
 
@@ -47,5 +53,9 @@ Three MongoDB collections:
 | DELETE | `/api/trips/:tripId/days/:dayId` | Yes |
 | POST | `/api/trips/:tripId/days/:dayId/items` | Yes |
 | PUT/DELETE | `/api/trips/:tripId/days/:dayId/items/:itemId` | Yes |
+| GET/POST | `/api/trips/:tripId/invites` | Yes (owner only) |
+| DELETE | `/api/trips/:tripId/invites/:inviteId` | Yes (owner only) |
+| GET | `/api/invites` | Yes |
+| PATCH | `/api/invites/:inviteId` | Yes |
 
 CORS is hardcoded to allow `http://localhost:3001`.

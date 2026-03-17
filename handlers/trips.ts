@@ -2,15 +2,37 @@ import { ObjectId } from 'mongodb';
 import { getDB } from '../db';
 
 export async function getTrips(userId: string): Promise<Response> {
-  const trips = await getDB()
-    .collection('trips')
-    .find({ userId: new ObjectId(userId) })
-    .sort({ createdAt: 1 })
-    .toArray();
+  const db = getDB();
 
-  return Response.json(
-    trips.map(t => ({ id: (t._id as ObjectId).toString(), name: t.name, createdAt: t.createdAt }))
-  );
+  const [ownedTrips, acceptedInvites] = await Promise.all([
+    db.collection('trips').find({ userId: new ObjectId(userId) }).sort({ createdAt: 1 }).toArray(),
+    db.collection('trip_invites').find({ userId: new ObjectId(userId), status: 'accepted' }).toArray(),
+  ]);
+
+  const sharedTrips = acceptedInvites.length > 0
+    ? await db.collection('trips').find({
+        _id: { $in: acceptedInvites.map((i: any) => new ObjectId(i.tripId)) },
+      }).sort({ createdAt: 1 }).toArray()
+    : [];
+
+  const inviteRoleMap = new Map(acceptedInvites.map((i: any) => [i.tripId, i.role]));
+
+  const result = [
+    ...ownedTrips.map(t => ({
+      id: (t._id as ObjectId).toString(),
+      name: t.name,
+      createdAt: t.createdAt,
+      role: 'owner',
+    })),
+    ...sharedTrips.map(t => ({
+      id: (t._id as ObjectId).toString(),
+      name: t.name,
+      createdAt: t.createdAt,
+      role: inviteRoleMap.get((t._id as ObjectId).toString()),
+    })),
+  ];
+
+  return Response.json(result);
 }
 
 export async function createTrip(userId: string, body: unknown): Promise<Response> {

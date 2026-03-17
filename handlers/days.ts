@@ -1,6 +1,6 @@
-import { ObjectId } from "mongodb";
 import { getDB } from "../db";
 import type { DayPlan } from "../types";
+import { getTripAccess } from "./access";
 
 type DayDoc = Omit<DayPlan, "id"> & { _id: string; tripId: string };
 
@@ -9,16 +9,9 @@ function toDay(doc: DayDoc): DayPlan {
   return { id: _id, ...rest };
 }
 
-async function checkTripOwnership(tripId: string, userId: string): Promise<boolean> {
-  const trip = await getDB().collection('trips').findOne({
-    _id: new ObjectId(tripId),
-    userId: new ObjectId(userId),
-  });
-  return trip !== null;
-}
-
 export async function getAllDays(userId: string, tripId: string): Promise<Response> {
-  if (!await checkTripOwnership(tripId, userId)) {
+  const access = await getTripAccess(tripId, userId);
+  if (!access) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
   const docs = await getDB()
@@ -30,7 +23,8 @@ export async function getAllDays(userId: string, tripId: string): Promise<Respon
 }
 
 export async function createDay(userId: string, tripId: string, body: unknown): Promise<Response> {
-  if (!await checkTripOwnership(tripId, userId)) {
+  const access = await getTripAccess(tripId, userId);
+  if (access !== 'owner' && access !== 'collaborator') {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
   const { date } = body as { date: string };
@@ -46,7 +40,8 @@ export async function createDay(userId: string, tripId: string, body: unknown): 
 }
 
 export async function deleteDay(userId: string, tripId: string, id: string): Promise<Response> {
-  if (!await checkTripOwnership(tripId, userId)) {
+  const access = await getTripAccess(tripId, userId);
+  if (access !== 'owner' && access !== 'collaborator') {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
   await getDB()

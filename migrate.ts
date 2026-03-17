@@ -76,5 +76,22 @@ if (daysCols.length === 0) {
 await db.collection('days').createIndex({ tripId: 1, date: 1 }, { unique: true });
 console.log('Index ensured: days.{tripId, date} (unique)');
 
+// --- trip_invites collection ---
+const invitesCols = await db.listCollections({ name: 'trip_invites' }).toArray();
+if (invitesCols.length === 0) {
+  await db.createCollection('trip_invites');
+  console.log('Created collection: trip_invites');
+} else {
+  console.log('Collection already exists: trip_invites');
+}
+await db.collection('trip_invites').createIndex({ tripId: 1, email: 1 }, { unique: true });
+console.log('Index ensured: trip_invites.{tripId, email} (unique)');
+await db.collection('trip_invites').createIndex({ email: 1, status: 1 });
+console.log('Index ensured: trip_invites.{email, status}');
+await db.collection('trip_invites').createIndex({ userId: 1, status: 1 });
+console.log('Index ensured: trip_invites.{userId, status}');
+await db.collection('trip_invites').createIndex({ tripId: 1, status: 1 });
+console.log('Index ensured: trip_invites.{tripId, status}');
+
 console.log('Migration complete');
 process.exit(0);

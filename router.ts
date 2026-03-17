@@ -2,11 +2,12 @@ import { register, login } from "./handlers/auth";
 import { getTrips, createTrip, deleteTrip } from "./handlers/trips";
 import { getAllDays, createDay, deleteDay } from "./handlers/days";
 import { createItem, updateItem, deleteItem } from "./handlers/items";
+import { createInvite, getTripInvites, revokeInvite, getMyInvites, respondToInvite } from "./handlers/invites";
 import { verifyAuth } from "./middleware/auth";
 
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "http://localhost:3001",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Origin": process.env.FRONTEND_URL ?? "http://localhost:3001",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
@@ -44,11 +45,23 @@ export async function router(req: Request): Promise<Response> {
     if (auth instanceof Response) return withCors(auth);
     const body = await req.json();
     res = await createTrip(auth.userId, body);
+  } else if (path === "/api/invites" && method === "GET") {
+    const auth = await verifyAuth(req);
+    if (auth instanceof Response) return withCors(auth);
+    res = await getMyInvites(auth.userId);
+  } else if (path.match(/^\/api\/invites\/([^/]+)$/) && method === "PATCH") {
+    const auth = await verifyAuth(req);
+    if (auth instanceof Response) return withCors(auth);
+    const [, inviteId] = path.match(/^\/api\/invites\/([^/]+)$/)!;
+    const body = await req.json();
+    res = await respondToInvite(auth.userId, inviteId, body);
   } else {
     const tripMatch = path.match(/^\/api\/trips\/([^/]+)$/);
     const daysListMatch = path.match(/^\/api\/trips\/([^/]+)\/days$/);
     const dayMatch = path.match(/^\/api\/trips\/([^/]+)\/days\/([^/]+)$/);
     const itemsMatch = path.match(/^\/api\/trips\/([^/]+)\/days\/([^/]+)\/items(?:\/([^/]+))?$/);
+    const invitesListMatch = path.match(/^\/api\/trips\/([^/]+)\/invites$/);
+    const inviteMatch = path.match(/^\/api\/trips\/([^/]+)\/invites\/([^/]+)$/);
 
     if (tripMatch && method === "DELETE") {
       const auth = await verifyAuth(req);
@@ -81,6 +94,19 @@ export async function router(req: Request): Promise<Response> {
       const auth = await verifyAuth(req);
       if (auth instanceof Response) return withCors(auth);
       res = await deleteItem(auth.userId, itemsMatch[1], itemsMatch[2], itemsMatch[3]);
+    } else if (invitesListMatch && method === "GET") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      res = await getTripInvites(auth.userId, invitesListMatch[1]);
+    } else if (invitesListMatch && method === "POST") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      const body = await req.json();
+      res = await createInvite(auth.userId, invitesListMatch[1], body);
+    } else if (inviteMatch && method === "DELETE") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      res = await revokeInvite(auth.userId, inviteMatch[1], inviteMatch[2]);
     } else {
       res = Response.json({ error: "Not found" }, { status: 404 });
     }

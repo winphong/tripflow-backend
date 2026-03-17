@@ -34,3 +34,15 @@ export interface AuthResponse {
   token: string;
   user: { id: string; email: string };
 }
+
+export interface TripInvite {
+  id: string;
+  tripId: string;
+  invitedBy: string;
+  email: string;
+  role: 'viewer' | 'collaborator';
+  status: 'pending' | 'accepted';
+  userId: string | null;
+  createdAt: Date;
+  respondedAt: Date | null;
+}

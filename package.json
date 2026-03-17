@@ -1,6 +1,7 @@
 {
   "name": "tripflow-backend",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "dev": "bun --watch index.ts",
     "start": "bun index.ts",
@@ -9,5 +10,8 @@
   "dependencies": {
     "jose": "^6.2.1",
     "mongodb": "^7.1.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
   }
 }

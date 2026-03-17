@@ -1,17 +1,10 @@
-import { ObjectId } from 'mongodb';
 import { getDB } from '../db';
 import type { TripItem } from '../types';
-
-async function checkTripOwnership(tripId: string, userId: string): Promise<boolean> {
-  const trip = await getDB().collection('trips').findOne({
-    _id: new ObjectId(tripId),
-    userId: new ObjectId(userId),
-  });
-  return trip !== null;
-}
+import { getTripAccess } from './access';
 
 export async function createItem(userId: string, tripId: string, dayId: string, body: unknown): Promise<Response> {
-  if (!await checkTripOwnership(tripId, userId)) {
+  const access = await getTripAccess(tripId, userId);
+  if (access !== 'owner' && access !== 'collaborator') {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
   const item = body as Partial<TripItem>;
@@ -28,7 +21,8 @@ export async function createItem(userId: string, tripId: string, dayId: string, 
 }
 
 export async function updateItem(userId: string, tripId: string, dayId: string, id: string, body: unknown): Promise<Response> {
-  if (!await checkTripOwnership(tripId, userId)) {
+  const access = await getTripAccess(tripId, userId);
+  if (access !== 'owner' && access !== 'collaborator') {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
   const patch = body as Partial<TripItem>;
@@ -50,7 +44,8 @@ export async function updateItem(userId: string, tripId: string, dayId: string, 
 }
 
 export async function deleteItem(userId: string, tripId: string, dayId: string, id: string): Promise<Response> {
-  if (!await checkTripOwnership(tripId, userId)) {
+  const access = await getTripAccess(tripId, userId);
+  if (access !== 'owner' && access !== 'collaborator') {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
   await getDB().collection('days').updateOne(

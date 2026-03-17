@@ -24,6 +24,13 @@ export async function register(body: unknown): Promise<Response> {
   });
 
   const userId = result.insertedId.toString();
+
+  // Link any pending invites sent to this email before registration
+  await db.collection('trip_invites').updateMany(
+    { email, status: 'pending', userId: null },
+    { $set: { userId: result.insertedId } }
+  );
+
   const token = await new SignJWT({ sub: userId })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('7d')
