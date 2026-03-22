@@ -2,7 +2,7 @@ import { register, login } from "./handlers/auth.js";
 import { importTripFromCSV } from "./handlers/import.js";
 import { getTrips, createTrip, deleteTrip } from "./handlers/trips.js";
 import { getAllDays, createDay, deleteDay } from "./handlers/days.js";
-import { createItem, updateItem, deleteItem } from "./handlers/items.js";
+import { createItem, updateItem, deleteItem, reorderItems } from "./handlers/items.js";
 import {
   createInvite,
   getTripInvites,
@@ -11,6 +11,7 @@ import {
   respondToInvite,
 } from "./handlers/invites.js";
 import { verifyAuth } from "./middleware/auth.js";
+import { resolveUrl } from "./handlers/urlResolver.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin":
@@ -38,6 +39,15 @@ export async function router(req: Request): Promise<Response> {
 
   if (path === "/api/health" && method === "GET") {
     res = Response.json({ ok: true });
+  } else if (path === "/api/resolve-url" && method === "GET") {
+    const auth = await verifyAuth(req);
+    if (auth instanceof Response) return withCors(auth);
+    const target = url.searchParams.get("url");
+    if (!target) {
+      res = Response.json({ error: "url required" }, { status: 400 });
+    } else {
+      res = await resolveUrl(target);
+    }
   } else if (path === "/api/auth/register" && method === "POST") {
     const body = await req.json();
     res = await register(body);
@@ -95,6 +105,11 @@ export async function router(req: Request): Promise<Response> {
       const auth = await verifyAuth(req);
       if (auth instanceof Response) return withCors(auth);
       res = await deleteDay(auth.userId, dayMatch[1], dayMatch[2]);
+    } else if (itemsMatch && !itemsMatch[3] && method === "PUT") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      const body = await req.json();
+      res = await reorderItems(auth.userId, itemsMatch[1], itemsMatch[2], body);
     } else if (itemsMatch && method === "POST") {
       const auth = await verifyAuth(req);
       if (auth instanceof Response) return withCors(auth);
