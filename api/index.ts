@@ -4,7 +4,6 @@ import { router } from "../router.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const pathname = (req.url ?? "").split("?")[0];
-  console.log(`[handler] ${req.method} ${pathname}`);
 
   if (!pathname.startsWith("/api")) {
     console.log(`[handler] non-api path, returning 404`);
@@ -12,7 +11,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (pathname === "/api/health") {
-    console.log(`[handler] health check, skipping DB`);
     return res.status(200).json({ ok: true });
   }
 
@@ -23,7 +21,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const webReq = new Request(`https://placeholder.local${req.url}`, {
     method: req.method,
     headers: req.headers as Record<string, string>,
-    body: ["GET", "HEAD"].includes(req.method!) ? undefined : JSON.stringify(req.body),
+    body: ["GET", "HEAD"].includes(req.method!)
+      ? undefined
+      : JSON.stringify(req.body),
   });
 
   const response = await router(webReq);

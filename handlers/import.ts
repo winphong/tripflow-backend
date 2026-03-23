@@ -106,10 +106,38 @@ function genId(): string {
   return Math.random().toString(36).slice(2, 11);
 }
 
+async function resolveLatLng(
+  mapLink: string,
+): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const res = await fetch(mapLink, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: AbortSignal.timeout(5000),
+    });
+    const finalUrl = res.url;
+    // Pattern 1: /@lat,lng,zoom
+    const atMatch = finalUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (atMatch) {
+      return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+    }
+    // Pattern 2: ?q=lat,lng
+    const q = new URL(finalUrl).searchParams.get("q");
+    const qMatch = q?.match(/^(-?\d+\.\d+),(-?\d+\.\d+)$/);
+    if (qMatch) {
+      return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 // Expected CSV columns: Date, Time, Item, Type, Notes, Google Map Link
+// Date format: "24 Apr 2026"  |  Time: "2:00 PM"  |  Type: Accommodation | Travel | Food | Activity
 export async function importTripFromCSV(
   userId: string,
   tripId: string,
@@ -151,8 +179,6 @@ export async function importTripFromCSV(
   for (const row of rows.slice(1)) {
     const [rawDate, rawTime, activity, rawType, notes, mapLink] = row;
 
-    console.log("row", row);
-
     const date = parseDate(rawDate ?? "");
     if (!date) continue; // blank / separator row
 
@@ -171,6 +197,20 @@ export async function importTripFromCSV(
     if (!dayMap.has(date)) dayMap.set(date, []);
     dayMap.get(date)!.push(item);
   }
+
+  // Resolve lat/lng for all items with a mapLink (in parallel)
+  const allItems = [...dayMap.values()].flat();
+  await Promise.all(
+    allItems
+      .filter((item) => item.mapLink)
+      .map(async (item) => {
+        const coords = await resolveLatLng(item.mapLink!);
+        if (coords) {
+          item.lat = coords.lat;
+          item.lng = coords.lng;
+        }
+      }),
+  );
 
   const db = getDB();
   let daysCreated = 0;

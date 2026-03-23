@@ -1,5 +1,6 @@
 import { register, login } from "./handlers/auth.js";
 import { importTripFromCSV } from "./handlers/import.js";
+import { exportTripToCSV } from "./handlers/export.js";
 import { getTrips, createTrip, deleteTrip } from "./handlers/trips.js";
 import { getAllDays, createDay, deleteDay } from "./handlers/days.js";
 import { createItem, updateItem, deleteItem, reorderItems } from "./handlers/items.js";
@@ -81,10 +82,15 @@ export async function router(req: Request): Promise<Response> {
       /^\/api\/trips\/([^/]+)\/days\/([^/]+)\/items(?:\/([^/]+))?$/,
     );
     const importCsvMatch = path.match(/^\/api\/trips\/([^/]+)\/import-csv$/);
+    const exportCsvMatch = path.match(/^\/api\/trips\/([^/]+)\/export-csv$/);
     const invitesListMatch = path.match(/^\/api\/trips\/([^/]+)\/invites$/);
     const inviteMatch = path.match(/^\/api\/trips\/([^/]+)\/invites\/([^/]+)$/);
 
-    if (importCsvMatch && method === "POST") {
+    if (exportCsvMatch && method === "GET") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      res = await exportTripToCSV(auth.userId, exportCsvMatch[1]);
+    } else if (importCsvMatch && method === "POST") {
       const auth = await verifyAuth(req);
       if (auth instanceof Response) return withCors(auth);
       res = await importTripFromCSV(auth.userId, importCsvMatch[1], req);
