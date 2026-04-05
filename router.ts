@@ -1,9 +1,20 @@
-import { register, login } from "./handlers/auth.js";
+import {
+  register,
+  login,
+  generateResetLink,
+  resetPassword,
+  promoteToAdmin,
+} from "./handlers/auth.js";
 import { importTripFromCSV } from "./handlers/import.js";
 import { exportTripToCSV } from "./handlers/export.js";
 import { getTrips, createTrip, deleteTrip } from "./handlers/trips.js";
 import { getAllDays, createDay, deleteDay } from "./handlers/days.js";
-import { createItem, updateItem, deleteItem, reorderItems } from "./handlers/items.js";
+import {
+  createItem,
+  updateItem,
+  deleteItem,
+  reorderItems,
+} from "./handlers/items.js";
 import {
   createInvite,
   getTripInvites,
@@ -55,6 +66,15 @@ export async function router(req: Request): Promise<Response> {
   } else if (path === "/api/auth/login" && method === "POST") {
     const body = await req.json();
     res = await login(body);
+  } else if (path === "/api/admin/promote" && method === "POST") {
+    const body = await req.json();
+    res = await promoteToAdmin(req, body);
+  } else if (path === "/api/admin/reset-link" && method === "POST") {
+    const body = await req.json();
+    res = await generateResetLink(req, body);
+  } else if (path === "/api/auth/reset-password" && method === "POST") {
+    const body = await req.json();
+    res = await resetPassword(body);
   } else if (path === "/api/trips" && method === "GET") {
     const auth = await verifyAuth(req);
     if (auth instanceof Response) return withCors(auth);
