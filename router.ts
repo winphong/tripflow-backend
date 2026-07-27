@@ -14,6 +14,7 @@ import {
   updateItem,
   deleteItem,
   reorderItems,
+  moveItemToDay,
 } from "./handlers/items.js";
 import {
   createInvite,
@@ -101,6 +102,7 @@ export async function router(req: Request): Promise<Response> {
     const itemsMatch = path.match(
       /^\/api\/trips\/([^/]+)\/days\/([^/]+)\/items(?:\/([^/]+))?$/,
     );
+    const moveItemMatch = path.match(/^\/api\/trips\/([^/]+)\/items\/([^/]+)\/move$/);
     const importCsvMatch = path.match(/^\/api\/trips\/([^/]+)\/import-csv$/);
     const exportCsvMatch = path.match(/^\/api\/trips\/([^/]+)\/export-csv$/);
     const invitesListMatch = path.match(/^\/api\/trips\/([^/]+)\/invites$/);
@@ -131,6 +133,16 @@ export async function router(req: Request): Promise<Response> {
       const auth = await verifyAuth(req);
       if (auth instanceof Response) return withCors(auth);
       res = await deleteDay(auth.userId, dayMatch[1], dayMatch[2]);
+    } else if (moveItemMatch && method === "PUT") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      const body = await req.json();
+      res = await moveItemToDay(
+        auth.userId,
+        moveItemMatch[1],
+        moveItemMatch[2],
+        body,
+      );
     } else if (itemsMatch && !itemsMatch[3] && method === "PUT") {
       const auth = await verifyAuth(req);
       if (auth instanceof Response) return withCors(auth);

@@ -1,4 +1,4 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, type ClientSession } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
 if (!uri) throw new Error("MONGODB_URI is not set");
@@ -34,4 +34,19 @@ export async function connectDB() {
 
 export function getDB() {
   return client.db("tripflow");
+}
+
+export async function withTransaction<T>(
+  fn: (session: ClientSession) => Promise<T>,
+): Promise<T> {
+  const session = client.startSession();
+  try {
+    let result: T;
+    await session.withTransaction(async () => {
+      result = await fn(session);
+    });
+    return result!;
+  } finally {
+    await session.endSession();
+  }
 }

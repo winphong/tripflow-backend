@@ -1,4 +1,4 @@
-import { getDB } from '../db.js';
+import { getDB, withTransaction } from '../db.js';
 import type { TripItem } from '../types.js';
 import { getTripAccess } from './access.js';
 
@@ -73,6 +73,62 @@ export async function reorderItems(userId: string, tripId: string, dayId: string
     { _id: dayId, tripId },
     { $set: { items: reordered } } as never
   );
+  return Response.json({ ok: true });
+}
+
+export async function moveItemToDay(userId: string, tripId: string, itemId: string, body: unknown): Promise<Response> {
+  const access = await getTripAccess(tripId, userId);
+  if (access !== 'owner' && access !== 'collaborator') {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  const { fromDayId, toDayId, toItemIds } = body as {
+    fromDayId?: string;
+    toDayId?: string;
+    toItemIds?: string[];
+  };
+  if (!fromDayId || !toDayId || !Array.isArray(toItemIds)) {
+    return Response.json({ error: 'fromDayId, toDayId and toItemIds are required' }, { status: 400 });
+  }
+
+  try {
+    await withTransaction(async (session) => {
+      const days = getDB().collection('days');
+
+      const fromDay = await days.findOne({ _id: fromDayId, tripId } as never, { session });
+      const item = (fromDay?.items as TripItem[] | undefined)?.find((i) => i.id === itemId);
+      if (!fromDay || !item) {
+        throw new Error('ITEM_NOT_FOUND');
+      }
+
+      await days.updateOne(
+        { _id: fromDayId, tripId },
+        { $pull: { items: { id: itemId } } } as never,
+        { session },
+      );
+
+      const toDay = await days.findOne({ _id: toDayId, tripId } as never, { session });
+      if (!toDay) throw new Error('DEST_DAY_NOT_FOUND');
+
+      const itemMap = new Map((toDay.items as TripItem[]).map((i: TripItem) => [i.id, i]));
+      itemMap.set(itemId, item);
+      const reordered = toItemIds.map(id => itemMap.get(id)).filter(Boolean);
+
+      await days.updateOne(
+        { _id: toDayId, tripId },
+        { $set: { items: reordered } } as never,
+        { session },
+      );
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === 'ITEM_NOT_FOUND') {
+      return Response.json({ error: 'Item not found in source day' }, { status: 404 });
+    }
+    if (err instanceof Error && err.message === 'DEST_DAY_NOT_FOUND') {
+      return Response.json({ error: 'Destination day not found' }, { status: 404 });
+    }
+    throw err;
+  }
+
   return Response.json({ ok: true });
 }
 
