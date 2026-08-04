@@ -24,7 +24,7 @@ import {
   respondToInvite,
 } from "./handlers/invites.js";
 import { verifyAuth } from "./middleware/auth.js";
-import { resolveUrl } from "./handlers/urlResolver.js";
+import { resolveUrl, resolveAmapUrl } from "./handlers/urlResolver.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin":
@@ -70,6 +70,15 @@ export async function router(req: Request): Promise<Response> {
   } else if (path === "/api/admin/promote" && method === "POST") {
     const body = await req.json();
     res = await promoteToAdmin(req, body);
+  } else if (path === "/api/resolve-amap-url" && method === "GET") {
+    const auth = await verifyAuth(req);
+    if (auth instanceof Response) return withCors(auth);
+    const target = url.searchParams.get("url");
+    if (!target) {
+      res = Response.json({ error: "url required" }, { status: 400 });
+    } else {
+      res = await resolveAmapUrl(target);
+    }
   } else if (path === "/api/admin/reset-link" && method === "POST") {
     const body = await req.json();
     res = await generateResetLink(req, body);
@@ -102,7 +111,9 @@ export async function router(req: Request): Promise<Response> {
     const itemsMatch = path.match(
       /^\/api\/trips\/([^/]+)\/days\/([^/]+)\/items(?:\/([^/]+))?$/,
     );
-    const moveItemMatch = path.match(/^\/api\/trips\/([^/]+)\/items\/([^/]+)\/move$/);
+    const moveItemMatch = path.match(
+      /^\/api\/trips\/([^/]+)\/items\/([^/]+)\/move$/,
+    );
     const importCsvMatch = path.match(/^\/api\/trips\/([^/]+)\/import-csv$/);
     const exportCsvMatch = path.match(/^\/api\/trips\/([^/]+)\/export-csv$/);
     const invitesListMatch = path.match(/^\/api\/trips\/([^/]+)\/invites$/);
