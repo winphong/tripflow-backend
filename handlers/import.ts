@@ -1,6 +1,7 @@
 import { getDB } from "../db.js";
 import type { TripItem } from "../types.js";
 import { getTripAccess } from "./access.js";
+import { logAudit } from "./audit.js";
 
 // ---------------------------------------------------------------------------
 // CSV parser — handles quoted fields with embedded newlines / commas
@@ -228,6 +229,13 @@ export async function importTripFromCSV(
       );
     if (result.upsertedCount > 0 || result.modifiedCount > 0) daysCreated++;
   }
+
+  await logAudit({
+    tripId,
+    userId,
+    action: 'import_csv',
+    details: { daysCreated, fileName: file.name },
+  });
 
   return Response.json({ ok: true, daysCreated });
 }

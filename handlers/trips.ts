@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { getDB } from '../db.js';
+import { logAudit } from './audit.js';
 
 export async function getTrips(userId: string): Promise<Response> {
   const db = getDB();
@@ -45,8 +46,11 @@ export async function createTrip(userId: string, body: unknown): Promise<Respons
     createdAt: new Date(),
   });
 
+  const tripId = result.insertedId.toString();
+  await logAudit({ tripId, userId, action: 'create_trip', entityId: tripId, details: { name } });
+
   return Response.json(
-    { id: result.insertedId.toString(), name, createdAt: new Date() },
+    { id: tripId, name, createdAt: new Date() },
     { status: 201 }
   );
 }
@@ -61,5 +65,6 @@ export async function deleteTrip(userId: string, tripId: string): Promise<Respon
 
   await db.collection('trips').deleteOne({ _id: new ObjectId(tripId) });
   await db.collection('days').deleteMany({ tripId });
+  await logAudit({ tripId, userId, action: 'delete_trip', entityId: tripId, details: { name: trip.name } });
   return Response.json({ ok: true });
 }

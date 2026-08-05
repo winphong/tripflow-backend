@@ -25,6 +25,7 @@ import {
 } from "./handlers/invites.js";
 import { verifyAuth } from "./middleware/auth.js";
 import { resolveUrl, resolveAmapUrl } from "./handlers/urlResolver.js";
+import { getAuditLog } from "./handlers/audit.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin":
@@ -118,6 +119,7 @@ export async function router(req: Request): Promise<Response> {
     const exportCsvMatch = path.match(/^\/api\/trips\/([^/]+)\/export-csv$/);
     const invitesListMatch = path.match(/^\/api\/trips\/([^/]+)\/invites$/);
     const inviteMatch = path.match(/^\/api\/trips\/([^/]+)\/invites\/([^/]+)$/);
+    const auditMatch = path.match(/^\/api\/trips\/([^/]+)\/audit$/);
 
     if (exportCsvMatch && method === "GET") {
       const auth = await verifyAuth(req);
@@ -197,6 +199,10 @@ export async function router(req: Request): Promise<Response> {
       const auth = await verifyAuth(req);
       if (auth instanceof Response) return withCors(auth);
       res = await revokeInvite(auth.userId, inviteMatch[1], inviteMatch[2]);
+    } else if (auditMatch && method === "GET") {
+      const auth = await verifyAuth(req);
+      if (auth instanceof Response) return withCors(auth);
+      res = await getAuditLog(auth.userId, auditMatch[1]);
     } else {
       res = Response.json({ error: "Not found" }, { status: 404 });
     }

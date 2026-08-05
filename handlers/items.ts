@@ -1,6 +1,7 @@
 import { getDB, withTransaction } from '../db.js';
 import type { TripItem } from '../types.js';
 import { getTripAccess } from './access.js';
+import { logAudit } from './audit.js';
 
 export async function createItem(userId: string, tripId: string, dayId: string, body: unknown): Promise<Response> {
   const access = await getTripAccess(tripId, userId);
@@ -17,6 +18,13 @@ export async function createItem(userId: string, tripId: string, dayId: string, 
     { _id: dayId, tripId },
     { $push: { items: newItem } as never }
   );
+  await logAudit({
+    tripId,
+    userId,
+    action: 'create_item',
+    entityId: newItem.id,
+    details: { dayId, item: newItem },
+  });
   return Response.json(newItem, { status: 201 });
 }
 
@@ -45,11 +53,30 @@ export async function updateItem(userId: string, tripId: string, dayId: string, 
     return Response.json({ error: 'No fields to update' }, { status: 400 });
   }
 
+  const day = await getDB().collection('days').findOne({ _id: dayId, tripId } as never);
+  const existing = (day?.items as TripItem[] | undefined)?.find((i) => i.id === id);
+
   await getDB().collection('days').updateOne(
     { _id: dayId, tripId },
     update as never,
     { arrayFilters: [{ 'elem.id': id }] }
   );
+
+  const after: Record<string, unknown> | null = existing ? { ...existing } : null;
+  if (after) {
+    for (const [key, val] of Object.entries(patch)) {
+      if (key === 'id') continue;
+      if (val === null) delete after[key];
+      else after[key] = val;
+    }
+  }
+  await logAudit({
+    tripId,
+    userId,
+    action: 'update_item',
+    entityId: id,
+    details: { dayId, before: existing ?? null, after },
+  });
   return Response.json({ ok: true });
 }
 
@@ -73,6 +100,7 @@ export async function reorderItems(userId: string, tripId: string, dayId: string
     { _id: dayId, tripId },
     { $set: { items: reordered } } as never
   );
+  await logAudit({ tripId, userId, action: 'reorder_items', entityId: dayId });
   return Response.json({ ok: true });
 }
 
@@ -129,6 +157,13 @@ export async function moveItemToDay(userId: string, tripId: string, itemId: stri
     throw err;
   }
 
+  await logAudit({
+    tripId,
+    userId,
+    action: 'move_item',
+    entityId: itemId,
+    details: { fromDayId, toDayId },
+  });
   return Response.json({ ok: true });
 }
 
@@ -137,9 +172,19 @@ export async function deleteItem(userId: string, tripId: string, dayId: string, 
   if (access !== 'owner' && access !== 'collaborator') {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
+  const day = await getDB().collection('days').findOne({ _id: dayId, tripId } as never);
+  const item = (day?.items as TripItem[] | undefined)?.find((i) => i.id === id);
+
   await getDB().collection('days').updateOne(
     { _id: dayId, tripId },
     { $pull: { items: { id } } as never }
   );
+  await logAudit({
+    tripId,
+    userId,
+    action: 'delete_item',
+    entityId: id,
+    details: { dayId, item: item ?? null },
+  });
   return Response.json({ ok: true });
 }

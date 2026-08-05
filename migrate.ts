@@ -93,5 +93,16 @@ console.log('Index ensured: trip_invites.{userId, status}');
 await db.collection('trip_invites').createIndex({ tripId: 1, status: 1 });
 console.log('Index ensured: trip_invites.{tripId, status}');
 
+// --- audit_logs collection ---
+const auditCols = await db.listCollections({ name: 'audit_logs' }).toArray();
+if (auditCols.length === 0) {
+  await db.createCollection('audit_logs');
+  console.log('Created collection: audit_logs');
+} else {
+  console.log('Collection already exists: audit_logs');
+}
+await db.collection('audit_logs').createIndex({ tripId: 1, createdAt: -1 });
+console.log('Index ensured: audit_logs.{tripId, createdAt}');
+
 console.log('Migration complete');
 process.exit(0);

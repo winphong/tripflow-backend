@@ -1,6 +1,7 @@
 import { getDB } from "../db.js";
 import type { DayPlan } from "../types.js";
 import { getTripAccess } from "./access.js";
+import { logAudit } from "./audit.js";
 
 type DayDoc = Omit<DayPlan, "id"> & { _id: string; tripId: string };
 
@@ -36,6 +37,7 @@ export async function createDay(userId: string, tripId: string, body: unknown): 
   await getDB()
     .collection<DayDoc>("days")
     .insertOne({ _id: id, date, tripId, items: [] });
+  await logAudit({ tripId, userId, action: 'create_day', entityId: id, details: { date } });
   return Response.json({ id, date, items: [] }, { status: 201 });
 }
 
@@ -44,8 +46,17 @@ export async function deleteDay(userId: string, tripId: string, id: string): Pro
   if (access !== 'owner' && access !== 'collaborator') {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
-  await getDB()
-    .collection("days")
-    .deleteOne({ _id: id, tripId });
+  const deleted = await getDB()
+    .collection<DayDoc>("days")
+    .findOneAndDelete({ _id: id, tripId } as never);
+  if (deleted) {
+    await logAudit({
+      tripId,
+      userId,
+      action: 'delete_day',
+      entityId: id,
+      details: { date: deleted.date, items: deleted.items },
+    });
+  }
   return Response.json({ ok: true });
 }

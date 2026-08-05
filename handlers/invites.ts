@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { getDB } from '../db.js';
+import { logAudit } from './audit.js';
 
 function toInvite(doc: any) {
   const { _id, ...rest } = doc;
@@ -60,6 +61,13 @@ export async function createInvite(userId: string, tripId: string, body: unknown
   };
 
   const result = await db.collection('trip_invites').insertOne(doc);
+  await logAudit({
+    tripId,
+    userId,
+    action: 'create_invite',
+    entityId: result.insertedId.toString(),
+    details: { email: normalizedEmail, role },
+  });
   return Response.json(toInvite({ _id: result.insertedId, ...doc }), { status: 201 });
 }
 
@@ -84,10 +92,19 @@ export async function revokeInvite(userId: string, tripId: string, inviteId: str
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  await getDB().collection('trip_invites').deleteOne({
+  const revoked = await getDB().collection('trip_invites').findOneAndDelete({
     _id: new ObjectId(inviteId),
     tripId,
   });
+  if (revoked) {
+    await logAudit({
+      tripId,
+      userId,
+      action: 'revoke_invite',
+      entityId: inviteId,
+      details: { email: revoked.email, role: revoked.role },
+    });
+  }
   return Response.json({ ok: true });
 }
 
@@ -136,6 +153,13 @@ export async function respondToInvite(userId: string, inviteId: string, body: un
 
   if (action === 'decline') {
     await db.collection('trip_invites').deleteOne({ _id: new ObjectId(inviteId) });
+    await logAudit({
+      tripId: invite.tripId,
+      userId,
+      action: 'respond_invite',
+      entityId: inviteId,
+      details: { action: 'decline' },
+    });
     return Response.json({ ok: true });
   }
 
@@ -143,5 +167,12 @@ export async function respondToInvite(userId: string, inviteId: string, body: un
     { _id: new ObjectId(inviteId) },
     { $set: { status: 'accepted', userId: new ObjectId(userId), respondedAt: new Date() } }
   );
+  await logAudit({
+    tripId: invite.tripId,
+    userId,
+    action: 'respond_invite',
+    entityId: inviteId,
+    details: { action: 'accept' },
+  });
   return Response.json({ ok: true });
 }

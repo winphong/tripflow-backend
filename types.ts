@@ -46,3 +46,14 @@ export interface TripInvite {
   createdAt: Date;
   respondedAt: Date | null;
 }
+
+export interface AuditLogEntry {
+  id: string;
+  tripId: string;
+  userId: string;
+  userEmail: string;
+  action: string;
+  entityId: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: Date;
+}
