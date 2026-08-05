@@ -94,13 +94,22 @@ export async function reorderItems(userId: string, tripId: string, dayId: string
   if (!day) return Response.json({ error: 'Not found' }, { status: 404 });
 
   const itemMap = new Map((day.items as TripItem[]).map((i: TripItem) => [i.id, i]));
-  const reordered = itemIds.map(id => itemMap.get(id)).filter(Boolean);
+  const reordered = itemIds.map(id => itemMap.get(id)).filter((i): i is TripItem => i !== undefined);
+
+  const before = (day.items as TripItem[]).map((i) => ({ id: i.id, activity: i.activity }));
+  const after = reordered.map((i) => ({ id: i.id, activity: i.activity }));
 
   await getDB().collection('days').updateOne(
     { _id: dayId, tripId },
     { $set: { items: reordered } } as never
   );
-  await logAudit({ tripId, userId, action: 'reorder_items', entityId: dayId });
+  await logAudit({
+    tripId,
+    userId,
+    action: 'reorder_items',
+    entityId: dayId,
+    details: { dayId, before, after },
+  });
   return Response.json({ ok: true });
 }
 
@@ -118,15 +127,25 @@ export async function moveItemToDay(userId: string, tripId: string, itemId: stri
     return Response.json({ error: 'fromDayId, toDayId and toItemIds are required' }, { status: 400 });
   }
 
+  let movedItem: TripItem | undefined;
+  let fromDate: string | undefined;
+  let toDate: string | undefined;
+  let fromIndex = -1;
+  let toIndex = -1;
+
   try {
     await withTransaction(async (session) => {
       const days = getDB().collection('days');
 
       const fromDay = await days.findOne({ _id: fromDayId, tripId } as never, { session });
-      const item = (fromDay?.items as TripItem[] | undefined)?.find((i) => i.id === itemId);
+      const fromItems = fromDay?.items as TripItem[] | undefined;
+      const item = fromItems?.find((i) => i.id === itemId);
       if (!fromDay || !item) {
         throw new Error('ITEM_NOT_FOUND');
       }
+      movedItem = item;
+      fromDate = fromDay.date as string;
+      fromIndex = fromItems!.findIndex((i) => i.id === itemId);
 
       await days.updateOne(
         { _id: fromDayId, tripId },
@@ -136,10 +155,12 @@ export async function moveItemToDay(userId: string, tripId: string, itemId: stri
 
       const toDay = await days.findOne({ _id: toDayId, tripId } as never, { session });
       if (!toDay) throw new Error('DEST_DAY_NOT_FOUND');
+      toDate = toDay.date as string;
 
       const itemMap = new Map((toDay.items as TripItem[]).map((i: TripItem) => [i.id, i]));
       itemMap.set(itemId, item);
       const reordered = toItemIds.map(id => itemMap.get(id)).filter(Boolean);
+      toIndex = toItemIds.indexOf(itemId);
 
       await days.updateOne(
         { _id: toDayId, tripId },
@@ -162,7 +183,11 @@ export async function moveItemToDay(userId: string, tripId: string, itemId: stri
     userId,
     action: 'move_item',
     entityId: itemId,
-    details: { fromDayId, toDayId },
+    details: {
+      item: movedItem,
+      before: { dayId: fromDayId, date: fromDate, index: fromIndex },
+      after: { dayId: toDayId, date: toDate, index: toIndex },
+    },
   });
   return Response.json({ ok: true });
 }
